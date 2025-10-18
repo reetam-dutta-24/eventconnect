@@ -1,0 +1,282 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+//USER AUTHENTICATION
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String?   @unique
+  name          String?
+  password      String?
+  avatar        String?
+  bio           String?   @db.Text
+  location      String?
+  role          Role      @default(USER)
+  interests     String[]  // Array of interest tags
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  bookings           Booking[]
+  organizedEvents    Event[]   @relation("OrganizerEvents")
+  reviews            Review[]
+  matchesInitiated   Match[]   @relation("InitiatedMatches")
+  matchesReceived    Match[]   @relation("ReceivedMatches")
+  sentMessages       Message[] @relation("SentMessages")
+  notifications      Notification[]
+  
+  @@map("users")
+}
+enum Role {
+  USER
+  ORGANIZER
+  ADMIN
+}
+// ============================================
+// EVENTS
+// ============================================
+model Event {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  description String      @db.Text
+  category    Category
+  coverImage  String?
+  venue       String
+  address     String
+  city        String?
+  country     String?
+  
+  startDate   DateTime
+  endDate     DateTime
+  timezone    String      @default("UTC")
+  
+  status      EventStatus @default(DRAFT)
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  organizerId String
+  organizer   User        @relation("OrganizerEvents", fields: [organizerId], references: [id], onDelete: Cascade)
+  
+  ticketTiers TicketTier[]
+  bookings    Booking[]
+  reviews     Review[]
+  
+  @@index([category])
+  @@index([startDate])
+  @@index([status])
+  @@map("events")
+}
+enum Category {
+  CONCERTS
+  SPORTS
+  TECH
+  FOOD
+  ARTS
+  NETWORKING
+  NIGHTLIFE
+  ARCADE
+  ENTERTAINMENT
+  TRAVEL
+  CULTURAL
+  OTHER
+}
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  ENDED
+}
+// ============================================
+// TICKETS
+// ============================================
+model TicketTier {
+  id          String   @id @default(cuid())
+  name        String   // "VIP", "General Admission", etc.
+  description String?  @db.Text
+  price       Float
+  quantity    Int      // Total available
+  sold        Int      @default(0)
+  benefits    String[] // Array of benefits
+  
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  tickets     Ticket[]
+  
+  @@map("ticket_tiers")
+}
+model Booking {
+  id               String        @id @default(cuid())
+  confirmationCode String        @unique @default(cuid())
+  
+  // Booking details
+  totalAmount      Float
+  status           BookingStatus @default(PENDING)
+  paymentIntentId  String?       // Stripe payment intent ID
+  
+  // Attendee details
+  attendeeName     String
+  attendeeEmail    String
+  attendeePhone    String?
+  specialRequests  String?       @db.Text
+  
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relations
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  tickets   Ticket[]
+  
+  @@index([userId])
+  @@index([eventId])
+  @@map("bookings")
+}
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+model Ticket {
+  id          String   @id @default(cuid())
+  qrCode      String   @unique // Unique QR code for check-in
+  checkedIn   Boolean  @default(false)
+  checkedInAt DateTime?
+  
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  tierId      String
+  tier        TicketTier @relation(fields: [tierId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("tickets")
+}
+// ============================================
+// REVIEWS
+// ============================================
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      // 1-5 stars
+  comment   String?  @db.Text
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, eventId]) // User can only review event once
+  @@map("reviews")
+}
+// ============================================
+// SOCIAL MATCHING
+// ============================================
+model Match {
+  id        String      @id @default(cuid())
+  status    MatchStatus @default(PENDING)
+  
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  initiatorId String
+  initiator   User     @relation("InitiatedMatches", fields: [initiatorId], references: [id], onDelete: Cascade)
+  
+  receiverId  String
+  receiver    User     @relation("ReceivedMatches", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  conversationId String? @unique
+  conversation   Conversation?
+  
+  @@unique([initiatorId, receiverId])
+  @@map("matches")
+}
+enum MatchStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+// ============================================
+// MESSAGING
+// ============================================
+model Conversation {
+  id        String   @id @default(cuid())
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  matchId   String   @unique
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  
+  messages  Message[]
+  
+  @@map("conversations")
+}
+model Message {
+  id      String   @id @default(cuid())
+  content String   @db.Text
+  read    Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  
+  senderId String
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@index([conversationId])
+  @@map("messages")
+}
+// ============================================
+// NOTIFICATIONS
+// ============================================
+model Notification {
+  id      String           @id @default(cuid())
+  type    NotificationType
+  title   String
+  message String           @db.Text
+  read    Boolean          @default(false)
+  link    String?          // URL to navigate to
+  
+  createdAt DateTime       @default(now())
+  
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("notifications")
+}
+enum NotificationType {
+  MATCH_REQUEST
+  MATCH_ACCEPTED
+  NEW_MESSAGE
+  BOOKING_CONFIRMED
+  EVENT_REMINDER
+  EVENT_UPDATE
+  ORGANIZER_ANNOUNCEMENT
+}
