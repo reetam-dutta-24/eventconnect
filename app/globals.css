@@ -1,26 +1,59 @@
 @import "tailwindcss";
 
+/* Define your custom CSS variables for theming */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Note: Using HSL/OKLCH style is encouraged for latest browsers, but your values are fine if supported */
+  --background: 218 25% 6%;        /* dark navy (#0A0A0F) */
+  --foreground: 0 0% 100%;         /* white text */
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 262 83% 58%;          /* purple (#8B5CF6) */
+  --primary-foreground: 210 40% 98%;
+  --secondary: 330 81% 60%;        /* pink (#EC4899) */
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 189 94% 43%;           /* cyan (#06B6D4) */
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 262 83% 58%;
+  --radius: 0.5rem;
 }
 
+/* Use a theme block if you want to expose custom properties to utilities */
+/* This is optional but recommended for v4 theming */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* You can map all your theme colours similarly if you want them accessible as utilities */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Then define global base styles via a layer */
+@layer base {
+  /* Universal border with your custom border color */
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border);
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    margin: 0;
+    font-family: system, sans-serif;
+  }
+
+  /* Example utility override: if you want a custom class */
+  .bg-background {
+    background-color: hsl(var(--background));
+  }
+  .text-foreground {
+    color: hsl(var(--foreground));
+  }
 }
